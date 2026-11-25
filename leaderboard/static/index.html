@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>多源单调聚合精确 Top-K 分析查询</title>
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+<header>
+  <h1>多源单调聚合 · 精确 Top-K 执行器</h1>
+  <p class="sub">
+    TA（排序+随机访问）/ NRA（纯排序访问）· 未见项上界驱动的可证明提前停止 ·
+    快照版本一致性 · 与全量关联逐名核对
+  </p>
+</header>
+
+<main>
+<section class="card">
+  <h2>1. 数据集与查询配置</h2>
+  <div class="grid">
+    <label>数据集
+      <select id="dataset"></select>
+    </label>
+    <label>K
+      <input type="number" id="k" min="1" max="100" value="3" />
+    </label>
+    <label>聚合器
+      <select id="aggregator">
+        <option value="wsum">wsum 加权和（单调）</option>
+        <option value="min">min（单调）</option>
+        <option value="max">max（单调）</option>
+        <option value="product">product（单调）</option>
+      </select>
+    </label>
+    <label>缺项规则
+      <select id="missing">
+        <option value="neutral">neutral 中性元占位</option>
+        <option value="exclude">exclude 移出后归一化</option>
+      </select>
+    </label>
+    <label>执行模式
+      <select id="mode">
+        <option value="ta">TA 排序+随机访问</option>
+        <option value="nra">NRA 纯排序访问</option>
+      </select>
+    </label>
+    <label>SA 调度
+      <select id="sa_policy">
+        <option value="round_robin">round_robin 轮询</option>
+        <option value="cheapest">cheapest 按 SA 代价</option>
+      </select>
+    </label>
+    <label>版本漂移策略
+      <select id="on_drift">
+        <option value="continue">continue 续用旧快照</option>
+        <option value="restart">restart 整次重开</option>
+      </select>
+    </label>
+  </div>
+  <div id="weights" class="weights"></div>
+  <div id="latencies" class="weights"></div>
+  <p id="dataset-desc" class="desc"></p>
+  <div class="btns">
+    <button id="btn-load">载入数据集</button>
+    <button id="btn-run" class="primary">执行查询</button>
+    <button id="btn-baseline">全量关联对照</button>
+    <button id="btn-step-start">开始步进</button>
+  </div>
+</section>
+
+<section class="card">
+  <h2>2. 停止证据与读取成本</h2>
+  <div id="stop-evidence" class="evidence empty">尚未执行</div>
+  <div class="grid2">
+    <div>
+      <h3>执行器真实读取量</h3>
+      <table id="ledger"><thead><tr>
+        <th>源</th><th>SA 次数</th><th>RA 次数</th><th>触及原始行</th><th>虚拟耗时</th>
+      </tr></thead><tbody></tbody></table>
+    </div>
+    <div>
+      <h3>全量关联读取量（对照）</h3>
+      <table id="fullcost"><thead><tr>
+        <th>源</th><th>SA 次数</th><th>RA 次数</th><th>原始行</th><th>虚拟耗时</th>
+      </tr></thead><tbody></tbody></table>
+      <div id="savings" class="savings"></div>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>3. 结果榜单与逐名核对</h2>
+  <div id="correctness" class="evidence empty">尚未核对</div>
+  <table id="ranking"><thead><tr>
+    <th>名次</th><th>业务键</th><th>执行器分数</th><th>全量基线分数</th><th>核对</th>
+  </tr></thead><tbody></tbody></table>
+</section>
+
+<section class="card">
+  <h2>4. 步进观察：当前候选与未见上界</h2>
+  <div class="btns">
+    <button id="btn-step-next" disabled>推进一步（一次 SA）</button>
+    <button id="btn-step-run" disabled>连续跑完</button>
+    <span id="step-status" class="desc"></span>
+  </div>
+  <div id="step-event" class="eventbox empty">步进事件将显示在这里</div>
+  <table id="candidates"><thead><tr>
+    <th>业务键</th><th>下界 LB</th><th>上界 UB</th><th>已确认值</th>
+    <th>确认缺席</th><th>未知源</th><th>最终分</th>
+  </tr></thead><tbody></tbody></table>
+</section>
+
+<section class="card">
+  <h2>5. 版本突变实验（查询中替换源数据）</h2>
+  <div class="btns">
+    <select id="mutate-source"></select>
+    <button id="btn-mutate">替换该源（版本+1）</button>
+    <span class="desc">先开始步进，再替换；继续推进一步观察 continue/restart 行为</span>
+  </div>
+  <div id="mutate-log" class="eventbox empty"></div>
+</section>
+
+<section class="card">
+  <h2>6. 朴素局部 TopK 反例</h2>
+  <div id="naive" class="evidence empty">点击「全量关联对照」生成</div>
+</section>
+</main>
+
+<footer>
+  零第三方依赖 · Python 标准库 http.server + 原生 JS ·
+  所有数字均来自引擎对当前快照的实际执行
+</footer>
+<script src="/app.js"></script>
+</body>
+</html>
